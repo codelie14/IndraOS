@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Cercle externe -->
+  <circle cx="100" cy="100" r="90" fill="#1e1e3f" stroke="#ff3d71" stroke-width="6"/>
+
+  <!-- Symbole éclair (pouvoir d’Indra, roi des dieux) -->
+  <polygon points="110,40 90,100 120,100 80,160" fill="#ff3d71"/>
+
+  <!-- Cercle interne (technologie, surveillance système) -->
+  <circle cx="100" cy="100" r="40" fill="none" stroke="#00ffa5" stroke-width="4" stroke-dasharray="8,6"/>
+
+  <!-- Texte IndraOS -->
+  <!-- <text x="50%" y="185" text-anchor="middle" font-size="22" font-family="Arial, sans-serif" fill="#ffffff">
+    IndraOS
+  </text> -->
+</svg>
