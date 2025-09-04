@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { SystemOverview } from '@/components/dashboard/SystemOverview';
+import { BackendStatus } from '@/components/dashboard/BackendStatus';
 import { PerformanceChart } from '@/components/charts/PerformanceChart';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { SystemHealth } from '@/components/dashboard/SystemHealth';
@@ -41,6 +42,10 @@ export default function DashboardPage() {
             Monitor your system with the wisdom of Indra, king of the gods
           </p>
         </div>
+      </motion.div>
+
+      <motion.div variants={itemVariants}>
+        <BackendStatus />
       </motion.div>
 
       <motion.div variants={itemVariants}>

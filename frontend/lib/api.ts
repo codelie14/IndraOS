@@ -25,51 +25,170 @@ api.interceptors.response.use(
 );
 
 export const systemAPI = {
+  // System endpoints
   getSystemInfo: async (): Promise<SystemInfo> => {
-    const { data } = await api.get('/system/info');
+    const { data } = await api.get('/system');
     return data;
   },
 
-  getMetrics: async (): Promise<SystemMetrics> => {
-    const { data } = await api.get('/system/performance');
+  getSystemOverview: async () => {
+    const { data } = await api.get('/system/overview');
     return data;
   },
 
-  getProcesses: async (): Promise<Process[]> => {
-    const { data } = await api.get('/system/processes');
+  getMetrics: async (limit: number = 100): Promise<SystemMetrics[]> => {
+    const { data } = await api.get(`/system/metrics?limit=${limit}`);
     return data;
   },
 
-  killProcess: async (processId: number): Promise<void> => {
-    await api.post(`/system/processes/${processId}/kill`);
-  },
-
-  suspendProcess: async (processId: number): Promise<void> => {
-    await api.post(`/system/processes/${processId}/suspend`);
-  },
-
-  getSecurityAnalysis: async () => {
-    const { data } = await api.get('/system/security');
+  getLatestMetrics: async (): Promise<SystemMetrics> => {
+    const { data } = await api.get('/system/metrics/latest');
     return data;
   },
 
-  getNetworkAnalysis: async () => {
-    const { data } = await api.get('/system/network');
+  collectMetrics: async () => {
+    const { data } = await api.post('/system/metrics/collect');
     return data;
   },
 
-  requestAIAnalysis: async (): Promise<AIInsight[]> => {
-    const { data } = await api.post('/ai/analyze');
+  // Process endpoints
+  getProcesses: async (skip: number = 0, limit: number = 100): Promise<Process[]> => {
+    const { data } = await api.get(`/processes?skip=${skip}&limit=${limit}`);
+    return data.processes;
+  },
+
+  getProcess: async (pid: number): Promise<Process> => {
+    const { data } = await api.get(`/processes/${pid}`);
     return data;
   },
 
-  generateReport: async (format: string, metrics: string[]) => {
-    const { data } = await api.post('/reports/generate', { format, metrics });
+  syncProcesses: async () => {
+    const { data } = await api.get('/processes/sync');
     return data;
   },
 
-  optimizeSystem: async () => {
-    const { data } = await api.post('/system/optimize');
+  killProcess: async (pid: number): Promise<void> => {
+    await api.delete(`/processes/${pid}`);
+  },
+
+  // Service endpoints
+  getServices: async (skip: number = 0, limit: number = 100) => {
+    const { data } = await api.get(`/services?skip=${skip}&limit=${limit}`);
+    return data.services;
+  },
+
+  getService: async (name: string) => {
+    const { data } = await api.get(`/services/${name}`);
+    return data;
+  },
+
+  syncServices: async () => {
+    const { data } = await api.get('/services/sync');
+    return data;
+  },
+
+  startService: async (name: string) => {
+    const { data } = await api.post(`/services/${name}/start`);
+    return data;
+  },
+
+  stopService: async (name: string) => {
+    const { data } = await api.post(`/services/${name}/stop`);
+    return data;
+  },
+
+  restartService: async (name: string) => {
+    const { data } = await api.post(`/services/${name}/restart`);
+    return data;
+  },
+
+  // Network endpoints
+  getNetworkInterfaces: async (skip: number = 0, limit: number = 100) => {
+    const { data } = await api.get(`/network/interfaces?skip=${skip}&limit=${limit}`);
+    return data.interfaces;
+  },
+
+  getNetworkInterface: async (name: string) => {
+    const { data } = await api.get(`/network/interfaces/${name}`);
+    return data;
+  },
+
+  syncNetworkInterfaces: async () => {
+    const { data } = await api.get('/network/interfaces/sync');
+    return data;
+  },
+
+  getNetworkStats: async () => {
+    const { data } = await api.get('/network/stats');
+    return data;
+  },
+
+  getNetworkConnections: async () => {
+    const { data } = await api.get('/network/connections');
+    return data;
+  },
+
+  // Security endpoints
+  getSecurityEvents: async (skip: number = 0, limit: number = 100, severity?: string, resolved?: boolean) => {
+    const params = new URLSearchParams();
+    if (skip) params.append('skip', skip.toString());
+    if (limit) params.append('limit', limit.toString());
+    if (severity) params.append('severity', severity);
+    if (resolved !== undefined) params.append('resolved', resolved.toString());
+    
+    const { data } = await api.get(`/security/events?${params.toString()}`);
+    return data.events;
+  },
+
+  getSecurityEvent: async (eventId: number) => {
+    const { data } = await api.get(`/security/events/${eventId}`);
+    return data;
+  },
+
+  resolveSecurityEvent: async (eventId: number) => {
+    const { data } = await api.post(`/security/events/${eventId}/resolve`);
+    return data;
+  },
+
+  deleteSecurityEvent: async (eventId: number) => {
+    await api.delete(`/security/events/${eventId}`);
+  },
+
+  getSecurityStats: async () => {
+    const { data } = await api.get('/security/stats');
+    return data;
+  },
+
+  scanSecurity: async () => {
+    const { data } = await api.post('/security/scan');
+    return data;
+  },
+
+  // Authentication endpoints
+  login: async (username: string, password: string) => {
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('password', password);
+    
+    const { data } = await api.post('/auth/login', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
+  },
+
+  register: async (userData: { username: string; email: string; password: string; full_name?: string }) => {
+    const { data } = await api.post('/auth/register', userData);
+    return data;
+  },
+
+  getCurrentUser: async (token: string) => {
+    const { data } = await api.get('/auth/me', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
     return data;
   },
 };
