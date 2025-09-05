@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import { SystemInfo, SystemMetrics, Process, AIInsight, Alert } from '@/types/system';
 
+const MAX_HISTORY_LENGTH = 50; // Store last 50 metrics for charts
+
 interface SystemStore {
   // System data
   systemInfo: SystemInfo | null;
   metrics: SystemMetrics | null;
+  metricsHistory: SystemMetrics[];
   processes: Process[];
   insights: AIInsight[];
   alerts: Alert[];
@@ -32,6 +35,7 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
   // Initial state
   systemInfo: null,
   metrics: null,
+  metricsHistory: [],
   processes: [],
   insights: [],
   alerts: [],
@@ -42,7 +46,10 @@ export const useSystemStore = create<SystemStore>((set, get) => ({
   
   // Actions
   setSystemInfo: (info) => set({ systemInfo: info }),
-  setMetrics: (metrics) => set({ metrics }),
+  setMetrics: (metrics) => set(state => ({ 
+    metrics,
+    metricsHistory: [...state.metricsHistory, metrics].slice(-MAX_HISTORY_LENGTH)
+  })),
   setProcesses: (processes) => set({ processes }),
   addInsight: (insight) => set(state => ({ 
     insights: [insight, ...state.insights].slice(0, 50) 

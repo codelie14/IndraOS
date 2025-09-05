@@ -58,7 +58,7 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <SystemHealth score={87} />
+          <SystemHealth />
         </motion.div>
       </div>
 

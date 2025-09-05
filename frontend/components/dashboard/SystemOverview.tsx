@@ -1,46 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Cpu, HardDrive, MemoryStick, Network } from 'lucide-react';
 import { MetricCard } from './MetricCard';
-import { systemAPI } from '@/lib/api';
-import type { SystemOverview as SystemOverviewType } from '@/types/system';
+import { useSystemStore } from '@/store/useSystemStore';
 
 export function SystemOverview() {
-  const [overview, setOverview] = useState<SystemOverviewType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchOverview = async () => {
-      try {
-        setIsLoading(true);
-        const data = await systemAPI.getSystemOverview();
-        setOverview(data);
-      } catch (error) {
-        console.error('Failed to fetch system overview:', error);
-        // Fallback to basic system info if overview fails
-        try {
-          const systemInfo = await systemAPI.getSystemInfo();
-          setOverview({
-            system_info: systemInfo,
-            current_metrics: null,
-            active_processes_count: 0,
-            running_services_count: 0,
-            network_interfaces_count: 0,
-            security_alerts_count: 0
-          });
-        } catch (fallbackError) {
-          console.error('Failed to fetch system info:', fallbackError);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchOverview();
-    const interval = setInterval(fetchOverview, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const metrics = useSystemStore((state) => state.metrics);
+  const connectionStatus = useSystemStore((state) => state.connectionStatus);
+  const isLoading = connectionStatus === 'connecting' && !metrics;
 
   const getCpuColor = (usage?: number) => {
     if (!usage) return 'default';
@@ -67,54 +34,65 @@ export function SystemOverview() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-32 bg-surface animate-pulse rounded-lg" />
+          <MetricCard
+            key={i}
+            title="..."
+            value="..."
+            icon={Cpu} // Placeholder icon
+            loading
+          />
         ))}
       </div>
     );
   }
 
-  if (!overview) {
+  if (!metrics) {
     return (
-      <div className="text-center py-8">
-        <p className="text-muted-foreground">Unable to load system overview</p>
+      <div className="text-center py-8 col-span-full">
+        <p className="text-muted-foreground">
+          {connectionStatus === 'disconnected'
+            ? 'Connection to server lost. Attempting to reconnect...'
+            : 'Waiting for system data...'}
+        </p>
       </div>
     );
   }
-
-  const metrics = overview.current_metrics;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <MetricCard
         title="CPU Usage"
-        value={`${metrics?.cpu_usage?.toFixed(1) || '0'}%`}
+        value={metrics.cpu_usage?.toFixed(1) ?? '0.0'}
+        unit="%"
+        percentage={metrics.cpu_usage}
         icon={Cpu}
-        color={getCpuColor(metrics?.cpu_usage)}
-        subtitle={`${metrics?.cpu_frequency ? (metrics.cpu_frequency / 1000).toFixed(1) + ' GHz' : 'N/A'}`}
+        color={getCpuColor(metrics.cpu_usage)}
       />
       
       <MetricCard
         title="Memory Usage"
-        value={`${metrics?.memory_usage?.toFixed(1) || '0'}%`}
+        value={metrics.memory_usage?.toFixed(1) ?? '0.0'}
+        unit="%"
+        percentage={metrics.memory_usage}
         icon={MemoryStick}
-        color={getMemoryColor(metrics?.memory_usage)}
-        subtitle={`${metrics?.memory_available?.toFixed(1) || '0'} GB available`}
+        color={getMemoryColor(metrics.memory_usage)}
       />
       
       <MetricCard
         title="Disk Usage"
-        value={`${metrics?.disk_usage?.toFixed(1) || '0'}%`}
+        value={metrics.disk_usage?.toFixed(1) ?? '0.0'}
+        unit="%"
+        percentage={metrics.disk_usage}
         icon={HardDrive}
-        color={getDiskColor(metrics?.disk_usage)}
-        subtitle={`${metrics?.disk_available?.toFixed(1) || '0'} GB free`}
+        color={getDiskColor(metrics.disk_usage)}
       />
       
       <MetricCard
-        title="Network"
-        value={`${metrics?.network_in ? (metrics.network_in / 1024).toFixed(1) : '0'} MB/s`}
+        title="Network I/O"
+        value={(metrics.network_in ?? 0).toFixed(2)}
+        unit="MB/s In"
         icon={Network}
         color="default"
-        subtitle={`${overview.network_interfaces_count} interfaces`}
       />
     </div>
   );

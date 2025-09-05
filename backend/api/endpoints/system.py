@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import asyncio
+
 from api.schemas.system import (
     SystemInfo, SystemMetrics, SystemOverview, 
     Process, ProcessList, Service, ServiceList,
@@ -14,6 +16,22 @@ from services import (
 from db import get_db
 
 router = APIRouter()
+
+@router.websocket("/ws/system-metrics")
+async def websocket_system_metrics(websocket: WebSocket):
+    """WebSocket endpoint for real-time system metrics."""
+    await websocket.accept()
+    try:
+        while True:
+            metrics = SystemService.get_realtime_metrics()
+            await websocket.send_json(metrics)
+            await asyncio.sleep(1)  # Send updates every second
+    except WebSocketDisconnect:
+        print("Client disconnected from system metrics websocket")
+    except Exception as e:
+        print(f"Error in system metrics websocket: {e}")
+    finally:
+        await websocket.close()
 
 @router.get("/system", response_model=SystemInfo)
 def get_system_info():

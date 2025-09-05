@@ -1,23 +1,30 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Shield, AlertCircle, CheckCircle } from 'lucide-react';
 import { useSystemStore } from '@/store/useSystemStore';
 
-interface SystemHealthProps {
-  score?: number;
-}
-
-export function SystemHealth({ score = 85 }: SystemHealthProps) {
+export function SystemHealth() {
+  const metrics = useSystemStore((state) => state.metrics);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const score = useMemo(() => {
+    if (!metrics) return 0;
+    // Weighted average: 40% CPU, 40% Memory, 20% Disk
+    const cpuScore = 100 - (metrics.cpu_usage || 0);
+    const memoryScore = 100 - (metrics.memory_usage || 0);
+    const diskScore = 100 - (metrics.disk_usage || 0);
+    const healthScore = cpuScore * 0.4 + memoryScore * 0.4 + diskScore * 0.2;
+    return Math.max(0, Math.min(100, Math.round(healthScore)));
+  }, [metrics]);
   
-  const getHealthStatus = (score: number) => {
-    if (score >= 90) return { label: 'Excellent', color: 'text-green-400', icon: CheckCircle };
-    if (score >= 75) return { label: 'Good', color: 'text-blue-400', icon: CheckCircle };
-    if (score >= 60) return { label: 'Fair', color: 'text-yellow-400', icon: AlertCircle };
+  const getHealthStatus = (s: number) => {
+    if (s >= 90) return { label: 'Excellent', color: 'text-green-400', icon: CheckCircle };
+    if (s >= 75) return { label: 'Good', color: 'text-blue-400', icon: CheckCircle };
+    if (s >= 60) return { label: 'Fair', color: 'text-yellow-400', icon: AlertCircle };
     return { label: 'Poor', color: 'text-red-400', icon: AlertCircle };
   };
 
@@ -33,6 +40,7 @@ export function SystemHealth({ score = 85 }: SystemHealthProps) {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const radius = 80;
+    const animatedScore = score; // In a real scenario, you might want to animate this value
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -46,7 +54,7 @@ export function SystemHealth({ score = 85 }: SystemHealthProps) {
 
     // Score arc
     const startAngle = -Math.PI / 2;
-    const endAngle = startAngle + (score / 100) * 2 * Math.PI;
+    const endAngle = startAngle + (animatedScore / 100) * 2 * Math.PI;
 
     // Gradient for the score arc
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -65,7 +73,7 @@ export function SystemHealth({ score = 85 }: SystemHealthProps) {
     ctx.font = 'bold 28px Inter';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(score.toString(), centerX, centerY - 5);
+    ctx.fillText(animatedScore.toString(), centerX, centerY - 5);
 
     // Percentage text
     ctx.fillStyle = '#94a3b8';
@@ -112,18 +120,18 @@ export function SystemHealth({ score = 85 }: SystemHealthProps) {
               transition={{ delay: 0.3 }}
               className="text-sm text-muted-foreground"
             >
-              Your system is under Indra's divine protection
+              System health score based on current metrics.
             </motion.p>
           </div>
 
           <div className="w-full grid grid-cols-2 gap-3 text-sm">
             <div className="text-center p-3 bg-[var(--indra-dark)]/30 rounded-lg">
-              <div className="text-green-400 font-medium">12</div>
-              <div className="text-muted-foreground">Optimizations</div>
+              <div className="text-green-400 font-medium">Real-time</div>
+              <div className="text-muted-foreground">Monitoring</div>
             </div>
             <div className="text-center p-3 bg-[var(--indra-dark)]/30 rounded-lg">
-              <div className="text-blue-400 font-medium">3</div>
-              <div className="text-muted-foreground">Issues Fixed</div>
+              <div className="text-blue-400 font-medium">Live</div>
+              <div className="text-muted-foreground">Data Feed</div>
             </div>
           </div>
         </div>

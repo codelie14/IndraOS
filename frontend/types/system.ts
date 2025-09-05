@@ -28,9 +28,12 @@ export interface Process {
   pid: number;
   name: string;
   command?: string;
-  cpu_percent?: number;
-  memory_percent?: number;
+  cpu_usage?: number;
+  memory_usage?: number;
+  disk_usage?: number;
   status?: string;
+  owner?: string;
+  priority?: string;
   created_at: string;
   updated_at: string;
 }

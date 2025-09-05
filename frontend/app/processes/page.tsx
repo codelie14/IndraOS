@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,10 +10,9 @@ import {
   Search, 
   Filter, 
   MoreVertical, 
-  Square, 
-  Play, 
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import {
   Table,
@@ -32,49 +31,68 @@ import {
 import { useSystemStore } from '@/store/useSystemStore';
 import { systemAPI } from '@/lib/api';
 import type { Process } from '@/types/system';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProcessesPage() {
   const { processes, setProcesses } = useSystemStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<keyof Process>('cpuUsage');
+  const [sortBy, setSortBy] = useState<keyof Process>('cpu_usage');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const fetchProcesses = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await systemAPI.getProcesses(0, 1000); // Fetch more processes
+      setProcesses(data);
+    } catch (err) {
+      console.error('Failed to fetch processes:', err);
+      setError('Failed to load process data. Please try again later.');
+      toast({
+        title: 'Error',
+        description: 'Could not fetch processes from the server.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [setProcesses, toast]);
 
   useEffect(() => {
-    const fetchProcesses = async () => {
-      try {
-        const data = await systemAPI.getProcesses();
-        setProcesses(data);
-      } catch (error) {
-        console.error('Failed to fetch processes:', error);
-        // Mock data for development
-        const mockProcesses: Process[] = Array.from({ length: 20 }, (_, i) => ({
-          id: i + 1,
-          name: `process_${i + 1}.exe`,
-          cpuUsage: Math.random() * 100,
-          memoryUsage: Math.random() * 1000,
-          diskUsage: Math.random() * 50,
-          status: ['running', 'sleeping', 'stopped'][Math.floor(Math.random() * 3)] as any,
-          priority: ['low', 'normal', 'high', 'realtime'][Math.floor(Math.random() * 4)] as any,
-          owner: ['System', 'Administrator', 'User'][Math.floor(Math.random() * 3)],
-          startTime: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-        }));
-        setProcesses(mockProcesses);
-      }
-    };
-
     fetchProcesses();
-    const interval = setInterval(fetchProcesses, 10000);
+    const interval = setInterval(fetchProcesses, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
-  }, [setProcesses]);
+  }, [fetchProcesses]);
+
+  const handleKillProcess = async (pid: number) => {
+    try {
+      await systemAPI.killProcess(pid);
+      toast({
+        title: 'Success',
+        description: `Process ${pid} has been terminated.`,
+      });
+      // Refresh the list immediately
+      fetchProcesses();
+    } catch (error) {
+      console.error(`Failed to kill process ${pid}:`, error);
+      toast({
+        title: 'Error',
+        description: `Failed to terminate process ${pid}. It may require higher privileges.`,
+        variant: 'destructive',
+      });
+    }
+  };
 
   const filteredProcesses = processes
     .filter(process => 
       process.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      process.owner.toLowerCase().includes(searchTerm.toLowerCase())
+      (process.owner && process.owner.toLowerCase().includes(searchTerm.toLowerCase()))
     )
     .sort((a, b) => {
-      const aVal = a[sortBy];
-      const bVal = b[sortBy];
+      const aVal = a[sortBy] || 0;
+      const bVal = b[sortBy] || 0;
       if (sortOrder === 'desc') {
         return aVal > bVal ? -1 : 1;
       }
@@ -86,16 +104,6 @@ export default function ProcessesPage() {
       case 'running': return 'bg-green-500/20 text-green-400';
       case 'sleeping': return 'bg-yellow-500/20 text-yellow-400';
       case 'stopped': return 'bg-red-500/20 text-red-400';
-      default: return 'bg-gray-500/20 text-gray-400';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'realtime': return 'bg-red-500/20 text-red-400';
-      case 'high': return 'bg-orange-500/20 text-orange-400';
-      case 'normal': return 'bg-blue-500/20 text-blue-400';
-      case 'low': return 'bg-gray-500/20 text-gray-400';
       default: return 'bg-gray-500/20 text-gray-400';
     }
   };
@@ -130,9 +138,8 @@ export default function ProcessesPage() {
                 />
               </div>
               
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
+              <Button variant="outline" size="icon" onClick={() => fetchProcesses()} disabled={loading}>
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
@@ -143,72 +150,75 @@ export default function ProcessesPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border/50 hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">PID</TableHead>
                   <TableHead className="text-muted-foreground">Process Name</TableHead>
                   <TableHead className="text-muted-foreground">CPU %</TableHead>
                   <TableHead className="text-muted-foreground">Memory</TableHead>
-                  <TableHead className="text-muted-foreground">Disk I/O</TableHead>
                   <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="text-muted-foreground">Priority</TableHead>
                   <TableHead className="text-muted-foreground">Owner</TableHead>
                   <TableHead className="text-muted-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProcesses.map((process, index) => (
-                  <motion.tr
-                    key={process.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, delay: index * 0.02 }}
-                    className="border-border/50 hover:bg-[var(--indra-dark)]/30"
-                  >
-                    <TableCell className="font-medium text-white">{process.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-white">{process.cpuUsage.toFixed(1)}%</span>
-                        {process.cpuUsage > 50 && (
-                          <AlertTriangle className="w-3 h-3 text-yellow-400" />
-                        )}
-                      </div>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <p className="text-muted-foreground">Loading processes...</p>
                     </TableCell>
-                    <TableCell className="text-white">{process.memoryUsage.toFixed(1)} MB</TableCell>
-                    <TableCell className="text-white">{process.diskUsage.toFixed(1)} MB/s</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(process.status)}>
-                        {process.status}
-                      </Badge>
+                  </TableRow>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <p className="text-red-400">{error}</p>
                     </TableCell>
-                    <TableCell>
-                      <Badge className={getPriorityColor(process.priority)}>
-                        {process.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{process.owner}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Square className="w-4 h-4 mr-2" />
-                            Suspend
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Play className="w-4 h-4 mr-2" />
-                            Resume
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-400">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Kill Process
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </motion.tr>
-                ))}
+                  </TableRow>
+                ) : (
+                  filteredProcesses.map((process, index) => (
+                    <motion.tr
+                      key={process.pid}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.02 }}
+                      className="border-border/50 hover:bg-[var(--indra-dark)]/30"
+                    >
+                      <TableCell className="text-muted-foreground">{process.pid}</TableCell>
+                      <TableCell className="font-medium text-white">{process.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-white">{process.cpu_usage?.toFixed(1) ?? '0.0'}%</span>
+                          {process.cpu_usage && process.cpu_usage > 50 && (
+                            <AlertTriangle className="w-3 h-3 text-yellow-400" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-white">{process.memory_usage?.toFixed(1) ?? '0.0'} MB</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(process.status)}>
+                          {process.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{process.owner || 'N/A'}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              className="text-red-400"
+                              onClick={() => handleKillProcess(process.pid)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Kill Process
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </motion.tr>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

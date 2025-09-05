@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,11 +11,14 @@ import {
   Legend,
   ArcElement,
   RadialLinearScale,
+  Filler,
 } from 'chart.js';
 import { Line, Doughnut, Radar } from 'react-chartjs-2';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { INDRA_COLORS } from '@/lib/constants';
+import { useSystemStore } from '@/store/useSystemStore';
+import { useMemo } from 'react';
 
 ChartJS.register(
   CategoryScale,
@@ -27,67 +29,23 @@ ChartJS.register(
   Tooltip,
   Legend,
   ArcElement,
-  RadialLinearScale
+  RadialLinearScale,
+  Filler
 );
 
-interface PerformanceChartProps {
-  data?: {
-    cpu: number[];
-    memory: number[];
-    disk: number[];
-    network: number[];
-  };
-  labels?: string[];
-}
+export function PerformanceChart() {
+  const metricsHistory = useSystemStore((state) => state.metricsHistory);
+  const latestMetrics = useSystemStore((state) => state.metrics);
 
-export function PerformanceChart({ data, labels }: PerformanceChartProps) {
-  const [chartData, setChartData] = useState({
-    cpu: [],
-    memory: [],
-    disk: [],
-    network: [],
-  });
+  const chartData = useMemo(() => {
+    const labels = metricsHistory.map((m) => new Date(m.timestamp).toLocaleTimeString());
+    const cpu = metricsHistory.map((m) => m.cpu_usage);
+    const memory = metricsHistory.map((m) => m.memory_usage);
+    const disk = metricsHistory.map((m) => m.disk_usage);
+    const network = metricsHistory.map((m) => m.network_in); // Using network_in for the chart
 
-  const [currentLabels, setCurrentLabels] = useState<string[]>([]);
-
-  // Initialize data on client side only
-  useEffect(() => {
-    const initialData = {
-      cpu: Array.from({ length: 20 }, () => Math.random() * 100),
-      memory: Array.from({ length: 20 }, () => Math.random() * 100),
-      disk: Array.from({ length: 20 }, () => Math.random() * 100),
-      network: Array.from({ length: 20 }, () => Math.random() * 100),
-    };
-
-    const initialLabels = Array.from({ length: 20 }, (_, i) => {
-      const now = new Date();
-      now.setSeconds(now.getSeconds() - (19 - i) * 5);
-      return now.toLocaleTimeString();
-    });
-
-    setChartData(initialData);
-    setCurrentLabels(initialLabels);
-  }, []);
-
-  useEffect(() => {
-    if (chartData.cpu.length === 0) return; // Wait for initial data
-
-    const interval = setInterval(() => {
-      setChartData(prev => ({
-        cpu: [...prev.cpu.slice(1), Math.random() * 100],
-        memory: [...prev.memory.slice(1), Math.random() * 100],
-        disk: [...prev.disk.slice(1), Math.random() * 100],
-        network: [...prev.network.slice(1), Math.random() * 100],
-      }));
-
-      setCurrentLabels(prev => {
-        const newLabel = new Date().toLocaleTimeString();
-        return [...prev.slice(1), newLabel];
-      });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [chartData.cpu.length]);
+    return { labels, cpu, memory, disk, network };
+  }, [metricsHistory]);
 
   const lineChartOptions = {
     responsive: true,
@@ -116,7 +74,8 @@ export function PerformanceChart({ data, labels }: PerformanceChartProps) {
         },
         ticks: {
           color: '#94a3b8',
-          maxTicksLimit: 5,
+          maxTicksLimit: 10,
+          autoSkip: true,
         },
       },
       y: {
@@ -143,52 +102,68 @@ export function PerformanceChart({ data, labels }: PerformanceChartProps) {
     },
   };
 
-  const lineChartData = {
-    labels: labels || currentLabels,
+  const getLineChartData = (data: number[], color: string) => ({
+    labels: chartData.labels,
     datasets: [
       {
-        data: data?.cpu || chartData.cpu,
-        borderColor: INDRA_COLORS.primary,
-        backgroundColor: `${INDRA_COLORS.primary}20`,
+        data,
+        borderColor: color,
+        backgroundColor: `${color}20`,
         borderWidth: 2,
         fill: true,
       },
     ],
-  };
+  });
 
   const doughnutData = {
-    labels: ['CPU', 'Memory', 'Disk', 'Network'],
+    labels: ['CPU', 'Memory', 'Disk'],
     datasets: [
       {
         data: [
-          data?.cpu?.[data.cpu.length - 1] || chartData.cpu[chartData.cpu.length - 1] || 0,
-          data?.memory?.[data.memory.length - 1] || chartData.memory[chartData.memory.length - 1] || 0,
-          data?.disk?.[data.disk.length - 1] || chartData.disk[chartData.disk.length - 1] || 0,
-          data?.network?.[data.network.length - 1] || chartData.network[chartData.network.length - 1] || 0,
+          latestMetrics?.cpu_usage || 0,
+          latestMetrics?.memory_usage || 0,
+          latestMetrics?.disk_usage || 0,
         ],
         backgroundColor: [
           INDRA_COLORS.primary,
-          INDRA_COLORS.secondary,
           INDRA_COLORS.accent,
           INDRA_COLORS.success,
         ],
-        borderColor: [
-          INDRA_COLORS.primary,
-          INDRA_COLORS.secondary,
-          INDRA_COLORS.accent,
-          INDRA_COLORS.success,
-        ],
-        borderWidth: 2,
+        borderColor: INDRA_COLORS.surface,
+        borderWidth: 4,
       },
     ],
   };
+  
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '70%',
+    plugins: {
+      legend: {
+        position: 'bottom' as const,
+        labels: {
+          color: '#ffffff',
+          boxWidth: 12,
+          padding: 20,
+        }
+      }
+    }
+  };
 
   const radarData = {
-    labels: ['CPU', 'Memory', 'Disk I/O', 'Network', 'Temperature', 'Security'],
+    labels: ['CPU', 'Memory', 'Disk I/O', 'Network', 'Uptime', 'Stability'],
     datasets: [
       {
         label: 'System Health',
-        data: [75, 85, 60, 90, 70, 95],
+        data: [
+          100 - (latestMetrics?.cpu_usage || 0),
+          100 - (latestMetrics?.memory_usage || 0),
+          100 - (latestMetrics?.disk_usage || 0),
+          Math.max(0, 100 - ((latestMetrics?.network_in || 0) * 10)), // Arbitrary scaling for network
+          Math.min(100, (latestMetrics?.uptime || 0) / (3600 * 24) * 100), // % of a day
+          latestMetrics?.system_status === 'operational' ? 95 : 10,
+        ],
         backgroundColor: `${INDRA_COLORS.primary}30`,
         borderColor: INDRA_COLORS.primary,
         borderWidth: 2,
@@ -239,44 +214,43 @@ export function PerformanceChart({ data, labels }: PerformanceChartProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6">
-        <Tabs defaultValue="timeline" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-[var(--indra-dark)]">
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-            <TabsTrigger value="distribution">Distribution</TabsTrigger>
-            <TabsTrigger value="health">Health Score</TabsTrigger>
+        <Tabs defaultValue="cpu" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 bg-[var(--indra-dark)]">
+            <TabsTrigger value="cpu">CPU</TabsTrigger>
+            <TabsTrigger value="memory">Memory</TabsTrigger>
+            <TabsTrigger value="disk">Disk</TabsTrigger>
+            <TabsTrigger value="health">Health</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="timeline" className="mt-6">
-            {chartData.cpu.length > 0 ? (
-              <div className="h-64">
-                <Line data={lineChartData} options={lineChartOptions} />
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                Loading chart data...
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="distribution" className="mt-6">
-            {chartData.cpu.length > 0 ? (
-              <div className="h-64 flex items-center justify-center">
-                <div className="w-64">
-                  <Doughnut data={doughnutData} options={{ responsive: true, maintainAspectRatio: false }} />
+          {metricsHistory.length > 0 ? (
+            <>
+              <TabsContent value="cpu" className="mt-6">
+                <div className="h-64">
+                  <Line data={getLineChartData(chartData.cpu, INDRA_COLORS.primary)} options={lineChartOptions} />
                 </div>
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                Loading chart data...
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="health" className="mt-6">
-            <div className="h-64">
-              <Radar data={radarData} options={radarOptions} />
+              </TabsContent>
+              <TabsContent value="memory" className="mt-6">
+                <div className="h-64">
+                  <Line data={getLineChartData(chartData.memory, INDRA_COLORS.accent)} options={lineChartOptions} />
+                </div>
+              </TabsContent>
+              <TabsContent value="disk" className="mt-6">
+                <div className="h-64">
+                  <Line data={getLineChartData(chartData.disk, INDRA_COLORS.success)} options={lineChartOptions} />
+                </div>
+              </TabsContent>
+              <TabsContent value="health" className="mt-6">
+                <div className="h-64 grid grid-cols-2 gap-4 items-center">
+                    <Doughnut data={doughnutData} options={doughnutOptions} />
+                    <Radar data={radarData} options={radarOptions} />
+                </div>
+              </TabsContent>
+            </>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-muted-foreground">
+              Waiting for performance data...
             </div>
-          </TabsContent>
+          )}
         </Tabs>
       </CardContent>
     </Card>

@@ -1,113 +1,90 @@
-import { io, Socket } from 'socket.io-client';
-import { WEBSOCKET_URL } from './constants';
+const WEBSOCKET_URL = 'ws://localhost:8000/api/ws/system-metrics';
 import { useSystemStore } from '@/store/useSystemStore';
-import type { SystemMetrics, Process, Alert, AIInsight } from '@/types/system';
+import type { SystemMetrics } from '@/types/system';
 
 class WebSocketClient {
-  private socket: Socket | null = null;
+  private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = 10;
+  private reconnectTimeoutId: NodeJS.Timeout | null = null;
 
   connect() {
-    if (this.socket?.connected) return;
-
+    // Avoid multiple connections
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      console.log('WebSocket is already connected.');
+      return;
+    }
+    
     // Don't attempt connection in SSR
-    if (typeof window === 'undefined') return;
-
-    // Disable WebSocket connections since no backend is running
-    console.log('WebSocket connections disabled - no backend server available');
-    return;
-
-    this.socket = io(WEBSOCKET_URL, {
-      transports: ['websocket'],
-      timeout: 20000,
-      autoConnect: false,
-    });
-
-    this.setupEventListeners();
-    this.socket.connect();
-  }
-
-  private setupEventListeners() {
-    if (!this.socket) return;
+    if (typeof window === 'undefined') {
+      return;
+    }
 
     const store = useSystemStore.getState();
+    store.setConnectionStatus('connecting');
 
-    this.socket.on('connect', () => {
-      console.log('WebSocket connected');
+    this.ws = new WebSocket(WEBSOCKET_URL);
+
+    this.ws.onopen = () => {
+      console.log('WebSocket connected successfully.');
       store.setConnectionStatus('connected');
       this.reconnectAttempts = 0;
-    });
+      if (this.reconnectTimeoutId) {
+        clearTimeout(this.reconnectTimeoutId);
+        this.reconnectTimeoutId = null;
+      }
+    };
 
-    this.socket.on('disconnect', () => {
-      console.log('WebSocket disconnected');
+    this.ws.onmessage = (event) => {
+      try {
+        const data: SystemMetrics = JSON.parse(event.data);
+        // Assuming the message is for system metrics
+        store.setMetrics(data);
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      store.setConnectionStatus('disconnected');
+    };
+
+    this.ws.onclose = () => {
+      console.log('WebSocket disconnected.');
       store.setConnectionStatus('disconnected');
       this.scheduleReconnect();
-    });
-
-    this.socket.on('system:metrics:update', (metrics: SystemMetrics) => {
-      store.setMetrics(metrics);
-    });
-
-    this.socket.on('process:status:change', (processes: Process[]) => {
-      store.setProcesses(processes);
-    });
-
-    this.socket.on('alert:new', (alert: Alert) => {
-      store.addAlert(alert);
-    });
-
-    this.socket.on('ai:analysis:complete', (insight: AIInsight) => {
-      store.addInsight(insight);
-    });
-
-    this.socket.on('system:health:critical', (data: any) => {
-      store.addAlert({
-        id: `critical-${Date.now()}`,
-        type: 'error',
-        title: 'Critical System Alert',
-        message: data.message,
-        timestamp: new Date().toISOString(),
-        read: false,
-      });
-    });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
-      store.setConnectionStatus('disconnected');
-      // Don't attempt reconnection if backend is not available
-      if (error.message.includes('websocket error')) {
-        console.log('Backend WebSocket server not available - running in offline mode');
-        return;
-      }
-    });
+    };
   }
 
   private scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnection attempts reached');
+      console.log('Max reconnection attempts reached. Stopping reconnection.');
       return;
     }
 
-    const delay = Math.pow(2, this.reconnectAttempts) * 1000; // Exponential backoff
+    const delay = Math.min(30000, Math.pow(2, this.reconnectAttempts) * 1000);
     this.reconnectAttempts++;
 
-    setTimeout(() => {
-      console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    console.log(`WebSocket disconnected. Attempting to reconnect in ${delay / 1000}s... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+    }
+
+    this.reconnectTimeoutId = setTimeout(() => {
       this.connect();
     }, delay);
   }
 
   disconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
     }
-  }
-
-  emit(event: string, data?: any) {
-    if (this.socket?.connected) {
-      this.socket.emit(event, data);
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
   }
 }

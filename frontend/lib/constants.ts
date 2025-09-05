@@ -12,7 +12,7 @@ export const INDRA_COLORS = {
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
-export const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8000';
+export const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8000/api/ws/system-metrics';
 
 export const REFRESH_INTERVALS = {
   SYSTEM_METRICS: 5000,

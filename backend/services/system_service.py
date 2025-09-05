@@ -133,3 +133,9 @@ class SystemService:
             "network_interfaces_count": network_interfaces_count,
             "security_alerts_count": security_alerts_count
         }
+
+    @staticmethod
+    def get_realtime_metrics() -> dict:
+        """Collect and return real-time system metrics as a dictionary."""
+        metrics = SystemService.collect_system_metrics()
+        return metrics.dict()
