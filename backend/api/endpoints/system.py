@@ -30,7 +30,6 @@ async def websocket_system_metrics(websocket: WebSocket):
         print("Client disconnected from system metrics websocket")
     except Exception as e:
         print(f"Error in system metrics websocket: {e}")
-    finally:
         await websocket.close()
 
 @router.get("/system", response_model=SystemInfo)

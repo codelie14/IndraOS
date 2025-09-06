@@ -91,7 +91,7 @@ export default function ServicesPage() {
 
   const filteredServices = services.filter(service => 
     service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    display_name.toLowerCase().includes(searchTerm.toLowerCase())
+    service.display_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -185,7 +185,7 @@ export default function ServicesPage() {
                       className="border-border/50 hover:bg-[var(--indra-dark)]/30"
                     >
                       <TableCell className="font-medium text-white">{service.name}</TableCell>
-                      <TableCell className="text-white">{display_name}</TableCell>
+                      <TableCell className="text-white">{service.display_name}</TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(service.status)}>
                           {service.status}

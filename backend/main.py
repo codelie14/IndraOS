@@ -4,7 +4,8 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from api.endpoints import system, auth
 from core.config import settings
-from db import engine, Base
+from db import engine, Base, SessionLocal
+from services import ProcessService, ServiceService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,7 +18,20 @@ async def lifespan(app: FastAPI):
         print("Database tables created successfully")
     except Exception as e:
         print(f"Error creating database tables: {e}")
-    
+
+    # Sync services and processes
+    db = SessionLocal()
+    try:
+        print("Syncing services...")
+        ServiceService.sync_services(db)
+        print("Services synced.")
+        
+        print("Syncing processes...")
+        ProcessService.sync_processes(db)
+        print("Processes synced.")
+    finally:
+        db.close()
+
     yield
     
     # Shutdown

@@ -57,6 +57,7 @@ class ServiceService:
             db.commit()
             return len(current_services)
         except Exception as e:
+            print(f"Error syncing services: {e}")
             db.rollback()
             return 0
     
