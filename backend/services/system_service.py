@@ -11,24 +11,68 @@ class SystemService:
     
     @staticmethod
     def get_system_info() -> SystemInfo:
-        """Get basic system information"""
+        """Get detailed system information"""
         try:
-            uptime = psutil.boot_time()
-            current_time = datetime.now().timestamp()
-            uptime_seconds = current_time - uptime
+            uname = platform.uname()
+            boot_time_timestamp = psutil.boot_time()
+            uptime_seconds = datetime.now().timestamp() - boot_time_timestamp
+            mem = psutil.virtual_memory()
+            swap = psutil.swap_memory()
             
+            # Disk information
+            disks = []
+            for part in psutil.disk_partitions():
+                try:
+                    usage = psutil.disk_usage(part.mountpoint)
+                    disks.append({
+                        "device": part.device,
+                        "mountpoint": part.mountpoint,
+                        "fstype": part.fstype,
+                        "total_size": round(usage.total / (1024**3), 2),
+                        "used_size": round(usage.used / (1024**3), 2),
+                        "free_size": round(usage.free / (1024**3), 2),
+                        "percent_used": usage.percent
+                    })
+                except (FileNotFoundError, PermissionError):
+                    continue
+
             return SystemInfo(
-                status="operational",
-                version=settings.api_version,
+                # System
+                hostname=uname.node,
+                platform=uname.system,
+                architecture=uname.machine,
+                os_version=uname.version,
+                boot_time=datetime.fromtimestamp(boot_time_timestamp).isoformat(),
                 uptime=uptime_seconds,
-                last_update=datetime.now()
+                
+                # CPU
+                cpu_model=platform.processor(),
+                cpu_cores_physical=psutil.cpu_count(logical=False),
+                cpu_cores_logical=psutil.cpu_count(logical=True),
+
+                # Memory
+                total_memory=round(mem.total / (1024**3), 2),
+                used_memory=round(mem.used / (1024**3), 2),
+                available_memory=round(mem.available / (1024**3), 2),
+
+                # Swap
+                total_swap=round(swap.total / (1024**3), 2),
+                used_swap=round(swap.used / (1024**3), 2),
+                free_swap=round(swap.free / (1024**3), 2),
+
+                # Disks
+                disks=disks
             )
         except Exception as e:
+            print(f"Error getting system info: {e}")
+            # Fallback in case of error
             return SystemInfo(
-                status="error",
-                version=settings.api_version,
-                uptime=None,
-                last_update=datetime.now()
+                hostname="Unknown", platform="Unknown", architecture="Unknown",
+                os_version="Unknown", boot_time=datetime.now().isoformat(), uptime=0,
+                cpu_model="Unknown", cpu_cores_physical=0, cpu_cores_logical=0,
+                total_memory=0.0, used_memory=0.0, available_memory=0.0,
+                total_swap=0.0, used_swap=0.0, free_swap=0.0,
+                disks=[]
             )
     
     @staticmethod

@@ -3,11 +3,41 @@ from typing import Optional, List
 from datetime import datetime
 
 # Base schemas
+class DiskInfo(BaseModel):
+    device: str
+    mountpoint: str
+    fstype: str
+    total_size: float
+    used_size: float
+    free_size: float
+    percent_used: float
+
 class SystemInfo(BaseModel):
-    status: str
-    version: str
+    # System
+    hostname: str
+    platform: str
+    architecture: str
+    os_version: str
+    boot_time: str
     uptime: Optional[float] = None
-    last_update: Optional[datetime] = None
+
+    # CPU
+    cpu_model: str
+    cpu_cores_physical: int
+    cpu_cores_logical: int
+
+    # Memory
+    total_memory: float
+    used_memory: float
+    available_memory: float
+    
+    # Swap
+    total_swap: float
+    used_swap: float
+    free_swap: float
+
+    # Disks
+    disks: List[DiskInfo]
 
 class SystemMetricsBase(BaseModel):
     cpu_usage: Optional[float] = None
