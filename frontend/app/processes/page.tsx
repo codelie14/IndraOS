@@ -27,6 +27,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useSystemStore } from '@/store/useSystemStore';
 import { systemAPI } from '@/lib/api';
@@ -36,6 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function ProcessesPage() {
   const { processes, setProcesses } = useSystemStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<keyof Process>('cpu_usage');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(true);
@@ -86,6 +90,10 @@ export default function ProcessesPage() {
   };
 
   const filteredProcesses = processes
+    .filter(process => {
+      if (statusFilter === 'all') return true;
+      return process.status === statusFilter;
+    })
     .filter(process => 
       process.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (process.owner && process.owner.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -107,6 +115,8 @@ export default function ProcessesPage() {
       default: return 'bg-gray-500/20 text-gray-400';
     }
   };
+
+  const processStatuses = ['all', ...Array.from(new Set(processes.map(p => p.status)))];
 
   return (
     <motion.div
@@ -137,6 +147,27 @@ export default function ProcessesPage() {
                   className="pl-10 bg-[var(--indra-dark)]/50 border-border/50"
                 />
               </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Filter className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {processStatuses.map(status => (
+                    <DropdownMenuCheckboxItem
+                      key={status}
+                      checked={statusFilter === status}
+                      onCheckedChange={() => setStatusFilter(status)}
+                    >
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               <Button variant="outline" size="icon" onClick={() => fetchProcesses()} disabled={loading}>
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
