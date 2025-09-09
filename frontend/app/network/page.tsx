@@ -1,19 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { 
   Wifi, 
   Globe, 
   Router, 
-  Signal,
   Download,
   Upload,
   Activity,
-  AlertCircle
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 import {
   Table,
@@ -23,7 +24,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from "@/hooks/use-toast"
 
 // Updated interfaces to match backend response
 interface NetworkConnection {
@@ -69,34 +78,71 @@ export default function NetworkPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const { toast } = useToast();
+
+  const fetchNetworkInfo = useCallback(async () => {
+    try {
+      // Don't set loading to true on auto-refresh
+      // setLoading(true); 
+      const res = await fetch('http://localhost:8000/api/network/all');
+      if (!res.ok) {
+        throw new Error('Failed to fetch network information');
+      }
+      const data: NetworkInfo = await res.json();
+      setNetworkInfo(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchNetworkInfo = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch('http://localhost:8000/api/network/all');
-        if (!res.ok) {
-          throw new Error('Failed to fetch network information');
-        }
-        const data: NetworkInfo = await res.json();
-        setNetworkInfo(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchNetworkInfo();
     const interval = setInterval(fetchNetworkInfo, 5000); // Refresh every 5 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNetworkInfo]);
 
-  const filteredConnections = networkInfo?.connections.filter(conn =>
-    conn.remote_addr.includes(searchTerm) ||
-    conn.process_name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const connectionStatuses = useMemo(() => {
+    if (!networkInfo) return [];
+    const statuses = new Set(networkInfo.connections.map(c => c.status));
+    return ['all', ...Array.from(statuses)];
+  }, [networkInfo]);
+
+  const filteredConnections = useMemo(() => {
+    if (!networkInfo) return [];
+    return networkInfo.connections.filter(conn => {
+      const searchMatch = conn.remote_addr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conn.process_name.toLowerCase().includes(searchTerm.toLowerCase());
+      const statusMatch = statusFilter === 'all' || conn.status === statusFilter;
+      return searchMatch && statusMatch;
+    });
+  }, [networkInfo, searchTerm, statusFilter]);
+
+  const handleKillProcess = async (pid: number) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/processes/${pid}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || 'Failed to kill process');
+      }
+      toast({
+        title: "Success",
+        description: `Process with PID ${pid} has been terminated.`,
+      });
+      fetchNetworkInfo(); // Refresh data after action
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err instanceof Error ? err.message : `Failed to terminate process ${pid}.`,
+      });
+    }
+  };
 
   const getStateColor = (state: string) => {
     switch (state) {
@@ -119,6 +165,22 @@ export default function NetworkPage() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  if (loading && !networkInfo) {
+    return (
+      <div className="p-6">
+        <Skeleton className="h-8 w-64 mb-2" />
+        <Skeleton className="h-4 w-96 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+          <Skeleton className="h-96" />
+          <Skeleton className="h-96" />
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -147,7 +209,7 @@ export default function NetworkPage() {
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
             <Download className="w-8 h-8 text-[var(--indra-blue)] mx-auto mb-3" />
-            {loading ? <Skeleton className="h-8 w-24 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{formatBytes(networkInfo?.io_counters.bytes_recv || 0)}</div>}
+            <div className="text-2xl font-bold text-white mb-1">{formatBytes(networkInfo?.io_counters.bytes_recv || 0)}</div>
             <div className="text-sm text-muted-foreground">Total Received</div>
           </CardContent>
         </Card>
@@ -155,7 +217,7 @@ export default function NetworkPage() {
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
             <Upload className="w-8 h-8 text-[var(--indra-red)] mx-auto mb-3" />
-            {loading ? <Skeleton className="h-8 w-24 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{formatBytes(networkInfo?.io_counters.bytes_sent || 0)}</div>}
+            <div className="text-2xl font-bold text-white mb-1">{formatBytes(networkInfo?.io_counters.bytes_sent || 0)}</div>
             <div className="text-sm text-muted-foreground">Total Sent</div>
           </CardContent>
         </Card>
@@ -163,7 +225,7 @@ export default function NetworkPage() {
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
             <Activity className="w-8 h-8 text-[var(--indra-accent)] mx-auto mb-3" />
-            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{networkInfo?.connections.length || 0}</div>}
+            <div className="text-2xl font-bold text-white mb-1">{networkInfo?.connections.length || 0}</div>
             <div className="text-sm text-muted-foreground">Active Connections</div>
           </CardContent>
         </Card>
@@ -171,7 +233,7 @@ export default function NetworkPage() {
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
             <Router className="w-8 h-8 text-green-400 mx-auto mb-3" />
-            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{networkInfo?.adapters.length || 0}</div>}
+            <div className="text-2xl font-bold text-white mb-1">{networkInfo?.adapters.length || 0}</div>
             <div className="text-sm text-muted-foreground">Network Adapters</div>
           </CardContent>
         </Card>
@@ -186,47 +248,43 @@ export default function NetworkPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-4 max-h-96 overflow-y-auto">
-            {loading ? (
-              Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)
-            ) : (
-              networkInfo?.adapters.map((adapter, index) => (
-                <motion.div
-                  key={adapter.name}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="p-4 bg-[var(--indra-dark)]/30 rounded-lg"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <Wifi className="w-4 h-4 text-[var(--indra-accent)]" />
-                      <span className="font-medium text-white">{adapter.name}</span>
-                    </div>
-                    <Badge className={getAdapterStatusColor(adapter.is_up)}>
-                      {adapter.is_up ? 'Up' : 'Down'}
-                    </Badge>
+            {networkInfo?.adapters.map((adapter, index) => (
+              <motion.div
+                key={adapter.name}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                className="p-4 bg-[var(--indra-dark)]/30 rounded-lg"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Wifi className="w-4 h-4 text-[var(--indra-accent)]" />
+                    <span className="font-medium text-white">{adapter.name}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">IP Address:</span>
-                      <p className="text-white">{adapter.ip_addresses.join(', ') || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Speed:</span>
-                      <p className="text-white">{adapter.speed} Mbps</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Received:</span>
-                      <p className="text-white">{formatBytes(adapter.bytes_recv)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Sent:</span>
-                      <p className="text-white">{formatBytes(adapter.bytes_sent)}</p>
-                    </div>
+                  <Badge className={getAdapterStatusColor(adapter.is_up)}>
+                    {adapter.is_up ? 'Up' : 'Down'}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">IP Address:</span>
+                    <p className="text-white">{adapter.ip_addresses.join(', ') || 'N/A'}</p>
                   </div>
-                </motion.div>
-              ))
-            )}
+                  <div>
+                    <span className="text-muted-foreground">Speed:</span>
+                    <p className="text-white">{adapter.speed} Mbps</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Received:</span>
+                    <p className="text-white">{formatBytes(adapter.bytes_recv)}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Sent:</span>
+                    <p className="text-white">{formatBytes(adapter.bytes_sent)}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </CardContent>
         </Card>
 
@@ -237,12 +295,26 @@ export default function NetworkPage() {
                 <Globe className="w-5 h-5 text-[var(--indra-red)]" />
                 <span>Active Connections</span>
               </CardTitle>
-              <Input
-                placeholder="Search connections..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-48 bg-[var(--indra-dark)]/50 border-border/50"
-              />
+              <div className="flex items-center space-x-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-36 bg-[var(--indra-dark)]/50 border-border/50">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {connectionStatuses.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-48 bg-[var(--indra-dark)]/50 border-border/50"
+                />
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -253,38 +325,42 @@ export default function NetworkPage() {
                     <TableHead className="text-muted-foreground">Remote Address</TableHead>
                     <TableHead className="text-muted-foreground">Status</TableHead>
                     <TableHead className="text-muted-foreground">Process</TableHead>
+                    <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <TableRow key={index}>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    filteredConnections.map((connection, index) => (
-                      <motion.tr
-                        key={`${connection.local_addr}-${connection.remote_addr}-${index}`}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                        className="border-border/50 hover:bg-[var(--indra-dark)]/30"
-                      >
-                        <TableCell className="text-white font-mono text-sm">
-                          {connection.remote_addr || 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStateColor(connection.status)}>
-                            {connection.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{connection.process_name}</TableCell>
-                      </motion.tr>
-                    ))
-                  )}
+                  {filteredConnections.map((connection, index) => (
+                    <motion.tr
+                      key={`${connection.local_addr}-${connection.remote_addr}-${index}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      className="border-border/50 hover:bg-[var(--indra-dark)]/30"
+                    >
+                      <TableCell className="text-white font-mono text-sm">
+                        {connection.remote_addr || 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStateColor(connection.status)}>
+                          {connection.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{connection.process_name}</TableCell>
+                      <TableCell className="text-right">
+                        {connection.pid && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                            onClick={() => handleKillProcess(connection.pid!)}
+                          >
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Kill
+                          </Button>
+                        )}
+                      </TableCell>
+                    </motion.tr>
+                  ))}
                 </TableBody>
               </Table>
             </div>
