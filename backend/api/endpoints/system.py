@@ -203,6 +203,11 @@ def get_network_connections():
     """Get active network connections."""
     return NetworkService.get_network_connections()
 
+@router.get("/network/all")
+def get_all_network_info():
+    """Get all network information."""
+    return NetworkService.get_all_network_info()
+
 # Security endpoints
 @router.get("/security/events", response_model=SecurityEventList)
 def get_security_events(

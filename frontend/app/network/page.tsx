@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Wifi, 
@@ -14,8 +13,6 @@ import {
   Download,
   Upload,
   Activity,
-  MapPin,
-  Shield,
   AlertCircle
 } from 'lucide-react';
 import {
@@ -26,120 +23,111 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 
+// Updated interfaces to match backend response
 interface NetworkConnection {
-  id: string;
-  localAddress: string;
-  remoteAddress: string;
-  protocol: 'TCP' | 'UDP';
-  state: 'ESTABLISHED' | 'LISTENING' | 'TIME_WAIT' | 'CLOSE_WAIT';
-  process: string;
-  port: number;
+  fd: number | null;
+  family: string;
+  type: string;
+  local_addr: string;
+  remote_addr: string;
+  status: string;
+  pid: number | null;
+  process_name: string;
 }
 
 interface NetworkAdapter {
   name: string;
-  type: 'Ethernet' | 'WiFi' | 'VPN';
-  status: 'Connected' | 'Disconnected' | 'Limited';
-  ipAddress: string;
-  speed: string;
-  bytesReceived: number;
-  bytesSent: number;
+  is_up: boolean;
+  speed: number;
+  mtu: number;
+  ip_addresses: string[];
+  bytes_sent: number;
+  bytes_recv: number;
+}
+
+interface NetworkIOCounters {
+  bytes_sent: number;
+  bytes_recv: number;
+  packets_sent: number;
+  packets_recv: number;
+  errin: number;
+  errout: number;
+  dropin: number;
+  dropout: number;
+}
+
+interface NetworkInfo {
+  adapters: NetworkAdapter[];
+  connections: NetworkConnection[];
+  io_counters: NetworkIOCounters;
 }
 
 export default function NetworkPage() {
-  const [connections, setConnections] = useState<NetworkConnection[]>([]);
-  const [adapters, setAdapters] = useState<NetworkAdapter[]>([]);
+  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    // Mock network data
-    const mockConnections: NetworkConnection[] = [
-      {
-        id: '1',
-        localAddress: '192.168.1.100',
-        remoteAddress: '142.250.191.14',
-        protocol: 'TCP',
-        state: 'ESTABLISHED',
-        process: 'chrome.exe',
-        port: 443
-      },
-      {
-        id: '2',
-        localAddress: '192.168.1.100',
-        remoteAddress: '0.0.0.0',
-        protocol: 'TCP',
-        state: 'LISTENING',
-        process: 'System',
-        port: 80
-      },
-      {
-        id: '3',
-        localAddress: '192.168.1.100',
-        remoteAddress: '52.97.144.85',
-        protocol: 'TCP',
-        state: 'ESTABLISHED',
-        process: 'Teams.exe',
-        port: 443
+    const fetchNetworkInfo = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('http://localhost:8000/api/network/all');
+        if (!res.ok) {
+          throw new Error('Failed to fetch network information');
+        }
+        const data: NetworkInfo = await res.json();
+        setNetworkInfo(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
 
-    const mockAdapters: NetworkAdapter[] = [
-      {
-        name: 'Ethernet',
-        type: 'Ethernet',
-        status: 'Connected',
-        ipAddress: '192.168.1.100',
-        speed: '1 Gbps',
-        bytesReceived: 1024000000,
-        bytesSent: 512000000
-      },
-      {
-        name: 'Wi-Fi',
-        type: 'WiFi',
-        status: 'Disconnected',
-        ipAddress: '--',
-        speed: '--',
-        bytesReceived: 0,
-        bytesSent: 0
-      }
-    ];
+    fetchNetworkInfo();
+    const interval = setInterval(fetchNetworkInfo, 5000); // Refresh every 5 seconds
 
-    setConnections(mockConnections);
-    setAdapters(mockAdapters);
+    return () => clearInterval(interval);
   }, []);
 
-  const filteredConnections = connections.filter(conn =>
-    conn.remoteAddress.includes(searchTerm) ||
-    conn.process.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConnections = networkInfo?.connections.filter(conn =>
+    conn.remote_addr.includes(searchTerm) ||
+    conn.process_name.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
   const getStateColor = (state: string) => {
     switch (state) {
       case 'ESTABLISHED': return 'bg-green-500/20 text-green-400';
-      case 'LISTENING': return 'bg-blue-500/20 text-blue-400';
+      case 'LISTEN': return 'bg-blue-500/20 text-blue-400';
       case 'TIME_WAIT': return 'bg-yellow-500/20 text-yellow-400';
       case 'CLOSE_WAIT': return 'bg-orange-500/20 text-orange-400';
       default: return 'bg-gray-500/20 text-gray-400';
     }
   };
 
-  const getAdapterStatusColor = (status: string) => {
-    switch (status) {
-      case 'Connected': return 'bg-green-500/20 text-green-400';
-      case 'Limited': return 'bg-yellow-500/20 text-yellow-400';
-      case 'Disconnected': return 'bg-red-500/20 text-red-400';
-      default: return 'bg-gray-500/20 text-gray-400';
-    }
+  const getAdapterStatusColor = (isUp: boolean) => {
+    return isUp ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400';
   };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full text-red-500">
+        <AlertCircle className="w-8 h-8 mr-2" />
+        <span>Error: {error}</span>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -159,32 +147,32 @@ export default function NetworkPage() {
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
             <Download className="w-8 h-8 text-[var(--indra-blue)] mx-auto mb-3" />
-            <div className="text-2xl font-bold text-white mb-1">85.6</div>
-            <div className="text-sm text-muted-foreground">Mbps Download</div>
+            {loading ? <Skeleton className="h-8 w-24 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{formatBytes(networkInfo?.io_counters.bytes_recv || 0)}</div>}
+            <div className="text-sm text-muted-foreground">Total Received</div>
           </CardContent>
         </Card>
 
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
             <Upload className="w-8 h-8 text-[var(--indra-red)] mx-auto mb-3" />
-            <div className="text-2xl font-bold text-white mb-1">25.3</div>
-            <div className="text-sm text-muted-foreground">Mbps Upload</div>
+            {loading ? <Skeleton className="h-8 w-24 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{formatBytes(networkInfo?.io_counters.bytes_sent || 0)}</div>}
+            <div className="text-sm text-muted-foreground">Total Sent</div>
           </CardContent>
         </Card>
 
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
             <Activity className="w-8 h-8 text-[var(--indra-accent)] mx-auto mb-3" />
-            <div className="text-2xl font-bold text-white mb-1">{connections.length}</div>
+            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{networkInfo?.connections.length || 0}</div>}
             <div className="text-sm text-muted-foreground">Active Connections</div>
           </CardContent>
         </Card>
 
         <Card className="bg-[var(--indra-surface)] border-border/50">
           <CardContent className="p-6 text-center">
-            <Signal className="w-8 h-8 text-green-400 mx-auto mb-3" />
-            <div className="text-2xl font-bold text-white mb-1">98%</div>
-            <div className="text-sm text-muted-foreground">Signal Strength</div>
+            <Router className="w-8 h-8 text-green-400 mx-auto mb-3" />
+            {loading ? <Skeleton className="h-8 w-16 mx-auto" /> : <div className="text-2xl font-bold text-white mb-1">{networkInfo?.adapters.length || 0}</div>}
+            <div className="text-sm text-muted-foreground">Network Adapters</div>
           </CardContent>
         </Card>
       </div>
@@ -197,44 +185,48 @@ export default function NetworkPage() {
               <span>Network Adapters</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            {adapters.map((adapter, index) => (
-              <motion.div
-                key={adapter.name}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="p-4 bg-[var(--indra-dark)]/30 rounded-lg"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <Wifi className="w-4 h-4 text-[var(--indra-accent)]" />
-                    <span className="font-medium text-white">{adapter.name}</span>
+          <CardContent className="p-6 space-y-4 max-h-96 overflow-y-auto">
+            {loading ? (
+              Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)
+            ) : (
+              networkInfo?.adapters.map((adapter, index) => (
+                <motion.div
+                  key={adapter.name}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className="p-4 bg-[var(--indra-dark)]/30 rounded-lg"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <Wifi className="w-4 h-4 text-[var(--indra-accent)]" />
+                      <span className="font-medium text-white">{adapter.name}</span>
+                    </div>
+                    <Badge className={getAdapterStatusColor(adapter.is_up)}>
+                      {adapter.is_up ? 'Up' : 'Down'}
+                    </Badge>
                   </div>
-                  <Badge className={getAdapterStatusColor(adapter.status)}>
-                    {adapter.status}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">IP Address:</span>
-                    <p className="text-white">{adapter.ipAddress}</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">IP Address:</span>
+                      <p className="text-white">{adapter.ip_addresses.join(', ') || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Speed:</span>
+                      <p className="text-white">{adapter.speed} Mbps</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Received:</span>
+                      <p className="text-white">{formatBytes(adapter.bytes_recv)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Sent:</span>
+                      <p className="text-white">{formatBytes(adapter.bytes_sent)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Speed:</span>
-                    <p className="text-white">{adapter.speed}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Received:</span>
-                    <p className="text-white">{formatBytes(adapter.bytesReceived)}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Sent:</span>
-                    <p className="text-white">{formatBytes(adapter.bytesSent)}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -259,32 +251,40 @@ export default function NetworkPage() {
                 <TableHeader>
                   <TableRow className="border-border/50">
                     <TableHead className="text-muted-foreground">Remote Address</TableHead>
-                    <TableHead className="text-muted-foreground">Protocol</TableHead>
-                    <TableHead className="text-muted-foreground">State</TableHead>
+                    <TableHead className="text-muted-foreground">Status</TableHead>
                     <TableHead className="text-muted-foreground">Process</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredConnections.map((connection, index) => (
-                    <motion.tr
-                      key={connection.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.2, delay: index * 0.05 }}
-                      className="border-border/50 hover:bg-[var(--indra-dark)]/30"
-                    >
-                      <TableCell className="text-white font-mono text-sm">
-                        {connection.remoteAddress}:{connection.port}
-                      </TableCell>
-                      <TableCell className="text-white">{connection.protocol}</TableCell>
-                      <TableCell>
-                        <Badge className={getStateColor(connection.state)}>
-                          {connection.state}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{connection.process}</TableCell>
-                    </motion.tr>
-                  ))}
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    filteredConnections.map((connection, index) => (
+                      <motion.tr
+                        key={`${connection.local_addr}-${connection.remote_addr}-${index}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.2, delay: index * 0.05 }}
+                        className="border-border/50 hover:bg-[var(--indra-dark)]/30"
+                      >
+                        <TableCell className="text-white font-mono text-sm">
+                          {connection.remote_addr || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStateColor(connection.status)}>
+                            {connection.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{connection.process_name}</TableCell>
+                      </motion.tr>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
