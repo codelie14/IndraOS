@@ -35,10 +35,10 @@ interface PerformanceChartProps {
   unit?: string;
 }
 
-export function PerformanceChart({ title, metricKey, data, color, unit = '' }: PerformanceChartProps) {
+export function PerformanceChart({ title, metricKey, data = [], color, unit = '' }: PerformanceChartProps) {
   const chartData = useMemo(() => {
-    const labels = (data || []).map((m) => new Date(m.timestamp).toLocaleTimeString());
-    const values = (data || []).map((m) => m[metricKey] as number);
+    const labels = data.map((m) => new Date(m.timestamp).toLocaleTimeString());
+    const values = data.map((m) => m[metricKey] as number);
     return { labels, values };
   }, [data, metricKey]);
 
@@ -119,7 +119,7 @@ export function PerformanceChart({ title, metricKey, data, color, unit = '' }: P
         <div className="flex justify-between items-center">
           <CardTitle className="text-white text-base font-medium">{title}</CardTitle>
           <div className="text-2xl font-bold" style={{ color }}>
-            {latestValue.toFixed(1)}{unit}
+            {typeof latestValue === 'number' ? latestValue.toFixed(1) : '0.0'}{unit}
           </div>
         </div>
       </CardHeader>

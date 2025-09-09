@@ -18,8 +18,8 @@ class ProcessService:
                         pid=proc_info['pid'],
                         name=proc_info['name'],
                         command=' '.join(proc_info['cmdline']) if proc_info['cmdline'] else None,
-                        cpu_percent=proc_info['cpu_percent'],
-                        memory_percent=proc_info['memory_percent'],
+                        cpu_usage=proc_info['cpu_percent'],
+                        memory_usage=proc_info['memory_percent'],
                         status=proc_info['status']
                     ))
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):

@@ -68,8 +68,8 @@ class ProcessBase(BaseModel):
     pid: int
     name: str
     command: Optional[str] = None
-    cpu_percent: Optional[float] = None
-    memory_percent: Optional[float] = None
+    cpu_usage: Optional[float] = None
+    memory_usage: Optional[float] = None
     status: Optional[str] = None
 
 class ProcessCreate(ProcessBase):
