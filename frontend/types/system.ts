@@ -1,7 +1,32 @@
+export interface DiskInfo {
+  device: string;
+  mountpoint: string;
+  fstype: string;
+  total_size: number;
+  used_size: number;
+  free_size: number;
+  percent_used: number;
+}
+
 export interface SystemInfo {
-  status: string;
-  version: string;
-  uptime?: number;
+  hostname: string;
+  platform: string;
+  architecture: string;
+  os_version: string;
+  boot_time: string;
+  uptime: number;
+  cpu_model: string;
+  cpu_cores_physical: number;
+  cpu_cores_logical: number;
+  total_memory: number;
+  used_memory: number;
+  available_memory: number;
+  total_swap: number;
+  used_swap: number;
+  free_swap: number;
+  disks: DiskInfo[];
+  status?: string;
+  version?: string;
   last_update?: string;
 }
 

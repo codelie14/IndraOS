@@ -29,43 +29,43 @@ export function AIInsightsPanel() {
   const { insights, addInsight } = useSystemStore();
   const [analyzing, setAnalyzing] = useState(false);
 
-  const triggerAnalysis = async () => {
-    try {
-      setAnalyzing(true);
-      const newInsights = await systemAPI.requestAIAnalysis();
-      newInsights.forEach(insight => addInsight(insight));
-    } catch (error) {
-      console.error('Failed to trigger AI analysis:', error);
-      // Mock insights for development
-      const mockInsights: AIInsight[] = [
-        {
-          id: Date.now().toString(),
-          type: 'optimization',
-          severity: 'medium',
-          title: 'Memory Optimization Opportunity',
-          description: 'Detected unused memory allocations in system processes',
-          recommendation: 'Consider restarting Chrome to free up 2.4GB of memory',
-          confidence: 87,
-          timestamp: new Date().toISOString(),
-          applied: false,
-        },
-        {
-          id: (Date.now() + 1).toString(),
-          type: 'security',
-          severity: 'high',
-          title: 'Suspicious Network Activity',
-          description: 'Unusual outbound connections detected from system process',
-          recommendation: 'Review firewall rules and scan for potential threats',
-          confidence: 92,
-          timestamp: new Date().toISOString(),
-          applied: false,
-        },
-      ];
-      mockInsights.forEach(insight => addInsight(insight));
-    } finally {
-      setAnalyzing(false);
-    }
-  };
+  // const triggerAnalysis = async () => {
+  //   try {
+  //     setAnalyzing(true);
+  //     const newInsights = await systemAPI.requestAIAnalysis();
+  //     newInsights.forEach(insight => addInsight(insight));
+  //   } catch (error) {
+  //     console.error('Failed to trigger AI analysis:', error);
+  //     // Mock insights for development
+  //     const mockInsights: AIInsight[] = [
+  //       {
+  //         id: Date.now().toString(),
+  //         type: 'optimization',
+  //         severity: 'medium',
+  //         title: 'Memory Optimization Opportunity',
+  //         description: 'Detected unused memory allocations in system processes',
+  //         recommendation: 'Consider restarting Chrome to free up 2.4GB of memory',
+  //         confidence: 87,
+  //         timestamp: new Date().toISOString(),
+  //         applied: false,
+  //       },
+  //       {
+  //         id: (Date.now() + 1).toString(),
+  //         type: 'security',
+  //         severity: 'high',
+  //         title: 'Suspicious Network Activity',
+  //         description: 'Unusual outbound connections detected from system process',
+  //         recommendation: 'Review firewall rules and scan for potential threats',
+  //         confidence: 92,
+  //         timestamp: new Date().toISOString(),
+  //         applied: false,
+  //       },
+  //     ];
+  //     mockInsights.forEach(insight => addInsight(insight));
+  //   } finally {
+  //     setAnalyzing(false);
+  //   }
+  // };
 
   return (
     <Card className="bg-[var(--indra-surface)] border-border/50">
@@ -76,8 +76,8 @@ export function AIInsightsPanel() {
             <span>Divine Insights</span>
           </CardTitle>
           <Button
-            onClick={triggerAnalysis}
-            disabled={analyzing}
+            // onClick={triggerAnalysis}
+            disabled={true || analyzing}
             size="sm"
             className="bg-[var(--indra-red)] hover:bg-[var(--indra-red)]/80"
           >
@@ -87,7 +87,7 @@ export function AIInsightsPanel() {
                 <span>Analyzing...</span>
               </div>
             ) : (
-              'Analyze System'
+              'Analysis Disabled'
             )}
           </Button>
         </div>

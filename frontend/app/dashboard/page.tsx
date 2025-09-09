@@ -7,6 +7,7 @@ import { PerformanceChart } from '@/components/charts/PerformanceChart';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { SystemHealth } from '@/components/dashboard/SystemHealth';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { useSystemStore } from '@/store/useSystemStore';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -28,6 +29,8 @@ const itemVariants = {
 };
 
 export default function DashboardPage() {
+  const metricsHistory = useSystemStore((state) => state.metricsHistory);
+
   return (
     <motion.div
       className="p-6 space-y-6"
@@ -52,25 +55,40 @@ export default function DashboardPage() {
         <SystemOverview />
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <motion.div variants={itemVariants} className="lg:col-span-2">
-          <PerformanceChart />
-        </motion.div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div variants={itemVariants}>
-          <SystemHealth />
+          <PerformanceChart
+            title="CPU Usage"
+            metricKey="cpu_usage"
+            data={metricsHistory}
+            color="hsl(var(--primary))"
+            unit="%"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <PerformanceChart
+            title="Memory Usage"
+            metricKey="memory_usage"
+            data={metricsHistory}
+            color="hsl(var(--secondary))"
+            unit="%"
+          />
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <motion.div variants={itemVariants} className="xl:col-span-2">
-          <QuickActions />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div variants={itemVariants} className="lg:col-span-2">
+          <SystemHealth />
         </motion.div>
 
         <motion.div variants={itemVariants}>
           <AIInsightsPanel />
         </motion.div>
       </div>
+
+      <motion.div variants={itemVariants}>
+        <QuickActions />
+      </motion.div>
     </motion.div>
   );
 }

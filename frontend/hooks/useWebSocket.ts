@@ -16,9 +16,9 @@ export function useWebSocket() {
     };
   }, []);
 
-  const emit = useCallback((event: string, data?: any) => {
-    wsClient.emit(event, data);
-  }, []);
+  // const emit = useCallback((event: string, data?: any) => {
+  //   wsClient.emit(event, data);
+  // }, []);
 
   const isConnected = connectionStatus === 'connected';
 

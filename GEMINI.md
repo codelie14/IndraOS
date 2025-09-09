@@ -1,21 +1,21 @@
 ## Error Type
-Runtime ReferenceError
+Runtime TypeError
 
 ## Error Message
-display_name is not defined
+Cannot read properties of undefined (reading 'map')
 
 
-    at eval (app\services\page.tsx:94:5)
-    at Array.filter (<anonymous>:null:null)
-    at ServicesPage (app\services\page.tsx:92:37)
+    at PerformanceChart.useMemo[chartData] (components\charts\PerformanceChart.tsx:40:25)
+    at PerformanceChart (components\charts\PerformanceChart.tsx:39:28)
+    at DashboardPage (app\dashboard\page.tsx:57:11)
 
 ## Code Frame
-  92 |   const filteredServices = services.filter(service => 
-  93 |     service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-> 94 |     display_name.toLowerCase().includes(searchTerm.toLowerCase())
-     |     ^
-  95 |   );
-  96 |
-  97 |   const getStatusColor = (status: string) => {
+  38 | export function PerformanceChart({ title, metricKey, data, color, unit = '' }: PerformanceChartProps) {
+  39 |   const chartData = useMemo(() => {
+> 40 |     const labels = data.map((m) => new Date(m.timestamp).toLocaleTimeString());
+     |                         ^
+  41 |     const values = data.map((m) => m[metricKey] as number);
+  42 |     return { labels, values };
+  43 |   }, [data, metricKey]);
 
 Next.js version: 15.5.2 (Webpack)

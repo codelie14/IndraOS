@@ -3,8 +3,11 @@
 import { motion } from 'framer-motion';
 import { SystemOverview } from '@/components/dashboard/SystemOverview';
 import { PerformanceChart } from '@/components/charts/PerformanceChart';
+import { useSystemStore } from '@/store/useSystemStore';
 
 export default function PerformancePage() {
+  const metricsHistory = useSystemStore((state) => state.metricsHistory);
+
   return (
     <motion.div
       className="p-6 space-y-6"
@@ -22,8 +25,20 @@ export default function PerformancePage() {
       <SystemOverview />
       
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <PerformanceChart />
-        <PerformanceChart />
+        <PerformanceChart
+          title="CPU Temperature"
+          metricKey="cpu_temperature"
+          data={metricsHistory}
+          color="#ff7f50"
+          unit="°C"
+        />
+        <PerformanceChart
+          title="Disk Usage"
+          metricKey="disk_usage"
+          data={metricsHistory}
+          color="#90ee90"
+          unit="%"
+        />
       </div>
     </motion.div>
   );

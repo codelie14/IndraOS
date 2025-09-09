@@ -116,7 +116,7 @@ export default function ProcessesPage() {
     }
   };
 
-  const processStatuses = ['all', ...Array.from(new Set(processes.map(p => p.status)))];
+  const processStatuses = ['all', ...Array.from(new Set(processes.map(p => p.status).filter((s): s is string => !!s)))];
 
   return (
     <motion.div
@@ -224,8 +224,8 @@ export default function ProcessesPage() {
                       </TableCell>
                       <TableCell className="text-white">{process.memory_usage?.toFixed(1) ?? '0.0'} MB</TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(process.status)}>
-                          {process.status}
+                        <Badge className={getStatusColor(process.status || 'unknown')}>
+                          {process.status || 'unknown'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{process.owner || 'N/A'}</TableCell>

@@ -100,7 +100,7 @@ export default function ServicesPage() {
     })
     .filter(service => 
       service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      service.display_name.toLowerCase().includes(searchTerm.toLowerCase())
+      (service.display_name && service.display_name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
   const getStatusColor = (status: string) => {

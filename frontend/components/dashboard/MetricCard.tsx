@@ -1,10 +1,8 @@
-'use client';
-
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { DivideIcon as LucideIcon } from 'lucide-react';
 
 interface MetricCardProps {
   title: string;
@@ -12,7 +10,7 @@ interface MetricCardProps {
   unit?: string;
   percentage?: number;
   trend?: 'up' | 'down' | 'stable';
-  icon: LucideIcon;
+  icon: React.ElementType;
   color?: 'default' | 'success' | 'warning' | 'danger';
   loading?: boolean;
   className?: string;
