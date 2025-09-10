@@ -11,23 +11,28 @@ import { useSystemStore } from '@/store/useSystemStore';
 import { systemAPI } from '@/lib/api';
 import type { AIInsight } from '@/types/system';
 
-const severityColors = {
-  low: 'bg-blue-500/20 text-blue-400',
-  medium: 'bg-yellow-500/20 text-yellow-400',
-  high: 'bg-orange-500/20 text-orange-400',
-  critical: 'bg-red-500/20 text-red-400',
+interface AIInsightsPanelProps {
+  insights: AIInsight[];
+}
+
+const severityColors: { [key: string]: string } = {
+  Low: 'bg-blue-500/20 text-blue-400',
+  Medium: 'bg-yellow-500/20 text-yellow-400',
+  High: 'bg-orange-500/20 text-orange-400',
+  Critical: 'bg-red-500/20 text-red-400',
 };
 
-const typeIcons = {
-  optimization: Lightbulb,
-  security: AlertTriangle,
-  performance: TrendingUp,
-  maintenance: CheckCircle,
+const typeIcons: { [key: string]: React.ElementType } = {
+  Optimization: Lightbulb,
+  Security: AlertTriangle,
+  Performance: TrendingUp,
+  Maintenance: CheckCircle,
 };
 
-export function AIInsightsPanel() {
-  const { insights, addInsight } = useSystemStore();
+export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
   const [analyzing, setAnalyzing] = useState(false);
+
+
 
   // const triggerAnalysis = async () => {
   //   try {
@@ -105,7 +110,7 @@ export function AIInsightsPanel() {
             </motion.div>
           ) : (
             insights.slice(0, 5).map((insight, index) => {
-              const Icon = typeIcons[insight.type] || Lightbulb;
+              const Icon = typeIcons[insight.category] || Lightbulb;
               
               return (
                 <motion.div
@@ -123,13 +128,10 @@ export function AIInsightsPanel() {
                     
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-white">{insight.title}</h4>
+                        <h4 className="font-medium text-white">{insight.category}</h4>
                         <div className="flex items-center space-x-2">
                           <Badge className={severityColors[insight.severity]}>
                             {insight.severity}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {insight.confidence}% confidence
                           </Badge>
                         </div>
                       </div>
@@ -138,19 +140,6 @@ export function AIInsightsPanel() {
                       
                       <div className="bg-[var(--indra-dark)]/50 p-3 rounded-lg">
                         <p className="text-sm text-white">{insight.recommendation}</p>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          <span>{new Date(insight.timestamp).toLocaleString()}</span>
-                        </div>
-                        
-                        {!insight.applied && (
-                          <Button size="sm" variant="outline" className="text-xs">
-                            Apply Recommendation
-                          </Button>
-                        )}
                       </div>
                     </div>
                   </div>

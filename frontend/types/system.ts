@@ -160,15 +160,32 @@ export interface SecurityEventList {
 }
 
 export interface AIInsight {
-  id: string;
-  type: 'optimization' | 'security' | 'performance' | 'maintenance';
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  title: string;
+  id: number;
+  category: string;
   description: string;
   recommendation: string;
-  confidence: number;
-  timestamp: string;
-  applied: boolean;
+  severity: string;
+}
+
+export interface AIAnalysisStats {
+  insights_generated: number;
+  optimizations_applied: number;
+  security_issues_fixed: number;
+  performance_gain_percentage: number;
+}
+
+export interface AIAnalysisStatus {
+  system_scan_progress: number;
+  security_analysis_progress: number;
+  performance_check_progress: number;
+  optimization_scan_progress: number;
+  status_message: string;
+}
+
+export interface AIAnalysisData {
+  stats: AIAnalysisStats;
+  status: AIAnalysisStatus;
+  insights: AIInsight[];
 }
 
 export interface Alert {

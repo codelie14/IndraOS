@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from api.endpoints import system, auth
+from api.endpoints import system, auth, ai_analysis
 from core.config import settings
 from db import engine, Base, SessionLocal
 from services import ProcessService, ServiceService
@@ -63,6 +63,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(system.router, prefix="/api", tags=["System"])
+app.include_router(ai_analysis.router, prefix="/api", tags=["AI Analysis"])
 
 @app.get("/")
 def read_root():

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { SystemInfo, SystemMetrics, Process, AIInsight } from '@/types/system';
+import type { SystemInfo, SystemMetrics, Process, AIInsight, AIAnalysisData } from '@/types/system';
 import { API_BASE_URL } from './constants';
 
 const api = axios.create({
@@ -166,6 +166,12 @@ export const systemAPI = {
 
   scanSecurity: async () => {
     const { data } = await api.post('/security/scan');
+    return data;
+  },
+
+  // AI Analysis endpoints
+  getAIAnalysis: async (): Promise<AIAnalysisData> => {
+    const { data } = await api.get('/ai-analysis');
     return data;
   },
 
