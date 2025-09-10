@@ -51,6 +51,11 @@ export const systemAPI = {
     return data;
   },
 
+  getSystemLogs: async (limit: number = 200, skip: number = 0): Promise<{ logs: string[]; total: number; message?: string }> => {
+    const { data } = await api.get(`/system/logs?limit=${limit}&skip=${skip}`);
+    return data;
+  },
+
   // Process endpoints
   getProcesses: async (skip: number = 0, limit: number = 100): Promise<Process[]> => {
     const { data } = await api.get(`/processes?skip=${skip}&limit=${limit}`);

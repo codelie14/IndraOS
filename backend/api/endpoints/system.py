@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSock
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import asyncio
+import os
 
 from api.schemas.system import (
     SystemInfo, SystemMetrics, SystemOverview, 
@@ -14,6 +15,7 @@ from services import (
     NetworkService, SecurityService
 )
 from db import get_db
+from core.config import settings
 
 router = APIRouter()
 
@@ -64,6 +66,22 @@ def collect_system_metrics(db: Session = Depends(get_db)):
     metrics = SystemService.collect_system_metrics()
     saved_metrics = SystemService.save_metrics(db, metrics)
     return {"message": "Metrics collected", "id": saved_metrics.id}
+
+@router.get("/system/logs")
+def get_system_logs(limit: int = 200, skip: int = 0):
+    """Retourne les dernières lignes du fichier de log système avec pagination."""
+    log_file = getattr(settings, 'log_file', 'indraos.log')
+    log_path = os.path.join(os.path.dirname(__file__), '../../', log_file)
+    log_path = os.path.abspath(log_path)
+    if not os.path.exists(log_path):
+        return {"logs": [], "message": f"Fichier de log non trouvé: {log_path}"}
+    with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+        lines = f.readlines()
+    total = len(lines)
+    # On retourne les lignes de skip à skip+limit (du plus récent au plus ancien)
+    logs = [line.rstrip() for line in lines[max(0, total - skip - limit):total - skip]] if total > 0 else []
+    logs.reverse()  # Pour afficher du plus récent au plus ancien
+    return {"logs": logs, "total": total}
 
 # Process endpoints
 @router.get("/processes", response_model=ProcessList)
